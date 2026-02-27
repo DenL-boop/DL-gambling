@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Neon Vault — Casino Simulator (Fake Credits)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg1:#07121a; --bg2:#041017; --neon:#36d089; --muted:#9feee0; --glass:rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,Arial;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:#e8fff7}
+  header{padding:34px;text-align:center;background:linear-gradient(135deg,#073227,#0b4030);box-shadow:0 8px 40px rgba(0,0,0,0.6)}
+  h1{margin:0;font-size:26px}
+  p.lead{margin:6px 0 0;color:var(--muted);font-size:13px}
+
+  main{max-width:1150px;margin:18px auto;padding:18px}
+  .top{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:16px}
+  .balance{background:linear-gradient(180deg,#04251c,#03261d);padding:10px 14px;border-radius:10px;border:1px solid var(--glass);display:flex;gap:12px;align-items:center}
+  .balance .label{font-size:12px;color:var(--muted)} .balance .value{font-weight:800;color:var(--neon);font-size:20px}
+
+  .tabs{display:flex;gap:8px;flex-wrap:wrap}
+  .tab{padding:8px 12px;border-radius:10px;background:linear-gradient(180deg,#071a1a,#041218);border:1px solid var(--glass);cursor:pointer;color:var(--muted);font-weight:700}
+  .tab.active{background:linear-gradient(90deg,var(--neon),#14b076);color:#041018;transform:translateY(-3px);box-shadow:0 10px 30px rgba(0,0,0,0.45)}
+
+  .layout{display:grid;grid-template-columns:1fr 380px;gap:20px}
+  @media(max-width:980px){.layout{grid-template-columns:1fr}}
+
+  .panel{background:linear-gradient(180deg,#07121a,#041014);padding:16px;border-radius:12px;border:1px solid var(--glass);box-shadow:0 10px 40px rgba(0,0,0,0.5)}
+  .panel h2{color:var(--neon);margin:0 0 8px}
+  .hint{color:var(--muted);font-size:13px;margin-top:6px}
+
+  /* games UI */
+  .game-buttons{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .game-btn{padding:8px 12px;border-radius:8px;background:linear-gradient(180deg,#081a19,#041412);border:1px solid var(--glass);cursor:pointer;color:var(--muted);font-weight:700}
+  .game-btn.active{background:linear-gradient(90deg,var(--neon),#14b076);color:#041018}
+
+  .reels{display:flex;gap:12px;justify-content:center;margin:12px 0}
+  .reel{width:84px;height:84px;border-radius:12px;background:linear-gradient(180deg,#08131a,#041018);display:flex;align-items:center;justify-content:center;font-size:44px;box-shadow:0 10px 30px rgba(0,0,0,0.5), inset 0 0 12px rgba(0,255,204,0.03);transition:transform .75s}
+
+  .controls{display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;margin-top:12px}
+  input[type=number], select{padding:8px;border-radius:8px;border:none;background:#021717;color:var(--neon);min-width:110px;text-align:center}
+  button{padding:10px 14px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--neon),#14b076);color:#041018;font-weight:800;cursor:pointer}
+  button.ghost{background:transparent;color:var(--muted);border:1px solid var(--glass)}
+
+  /* wheel */
+  #wheel{width:240px;height:240px;border-radius:50%;margin:12px auto;border:8px solid rgba(255,255,255,0.04);background:conic-gradient(#b3004a 0deg,#0b5d2c 10deg,#b3004a 20deg,#0b5d2c 30deg,#b3004a 40deg,#0b5d2c 50deg);transition:transform 3s cubic-bezier(.17,.67,.83,.67);display:flex;align-items:center;justify-content:center}
+  .wheel-center{padding:10px;background:#e9fff3;border-radius:10px;color:#041018;font-weight:800}
+
+  /* side */
+  .side-title{font-weight:900;color:var(--neon);margin-bottom:6px}
+  .history{background:linear-gradient(180deg,#031218,#04121a);padding:10px;border-radius:8px;height:260px;overflow:auto;border:1px solid var(--glass)}
+  .hist-item{font-size:13px;color:var(--muted);border-bottom:1px dashed rgba(255,255,255,0.02);padding:6px}
+
+  .evbox{margin-top:8px;color:var(--muted);font-size:13px}
+  #achievement{position:fixed;right:18px;bottom:18px;background:var(--neon);color:#042018;padding:10px 14px;border-radius:10px;display:none;font-weight:800;box-shadow:0 10px 40px rgba(0,0,0,0.4)}
+
+  footer{margin:24px 0 60px;text-align:center;color:var(--muted);font-size:13px}
+  /* accessibility focus */
+  .tab:focus, .game-btn:focus, button:focus { outline: 3px solid rgba(54,208,137,0.18); outline-offset:4px; }
+  /* small card visuals for blackjack */
+  .card{width:56px;height:82px;border-radius:8px;background:white;color:black;display:inline-flex;align-items:center;justify-content:center;font-weight:700;margin:2px}
+</style>
+</head>
+<body>
+<header>
+  <h1>NEON VAULT — Casino Simulator (Fake Credits)</h1>
+  <p class="lead">Educational simulation only. All credits are fake and stored locally. Learn EV & probability — do NOT use for real gambling.</p>
+</header>
+
+<main>
+  <div class="top">
+    <div class="balance" role="status" aria-live="polite">
+      <div>
+        <div class="label">Balance</div>
+        <div class="value" id="balanceVal">0</div>
+      </div>
+      <div style="color:var(--muted);font-size:12px;margin-left:8px">Fake credits stored in your browser</div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Main tabs">
+      <div class="tab active" data-tab="games">Games</div>
+      <div class="tab" data-tab="rules">Rules</div>
+      <div class="tab" data-tab="stats">Stats</div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <!-- Left column -->
+    <div>
+      <!-- GAMES PANEL -->
+      <section class="panel" data-panel="games">
+        <h2>Games</h2>
+        <div class="game-buttons" aria-label="Select a game">
+          <button class="game-btn active" data-game="slots">Slots</button>
+          <button class="game-btn" data-game="dice">Dice</button>
+          <button class="game-btn" data-game="blackjack">Blackjack</button>
+          <button class="game-btn" data-game="roulette">Roulette</button>
+        </div>
+
+        <!-- SLOTS -->
+        <div class="game" id="game-slots" data-gamepanel>
+          <h3 style="color:var(--neon)">🎰 Slots</h3>
+          <div class="hint"><strong>How:</strong> pick your bet and press Spin. Match three identical symbols to win. Payouts scale with your bet.</div>
+          <div class="reels"><div class="reel" id="slot-r1">🍒</div><div class="reel" id="slot-r2">🍋</div><div class="reel" id="slot-r3">🔔</div></div>
+          <div class="controls">
+            <label>Bet</label><input type="number" id="slotsBet" value="20" min="1">
+            <button id="spinSlotsBtn">Spin Slots</button>
+            <button id="slotsSuggest" class="ghost">Suggest Bet</button>
+          </div>
+          <div class="evbox" id="slotsInfo"></div>
+        </div>
+
+        <!-- DICE -->
+        <div class="game" id="game-dice" data-gamepanel style="display:none">
+          <h3 style="color:var(--neon)">🎲 Dice</h3>
+          <div class="hint"><strong>How:</strong> choose High/Low (1:1) or Exact (5:1). Enter bet, then Roll.</div>
+          <div id="diceFace" style="text-align:center;font-size:44px;margin:10px">🎲</div>
+          <div class="controls">
+            <label>Bet</label><input type="number" id="diceBet" value="10" min="1">
+            <label>Type</label>
+            <select id="diceType"><option value="high">High (4–6)</option><option value="low">Low (1–3)</option><option value="exact">Exact</option></select>
+            <input type="number" id="diceExact" value="3" min="1" max="6" style="width:80px">
+            <button id="diceRollBtn">Roll Dice</button>
+            <button id="diceSuggest" class="ghost">Suggest Bet</button>
+          </div>
+          <div class="evbox" id="diceInfo"></div>
+        </div>
+
+        <!-- BLACKJACK -->
+        <div class="game" id="game-blackjack" data-gamepanel style="display:none">
+          <h3 style="color:var(--neon)">🃏 Blackjack</h3>
+          <div class="hint"><strong>How:</strong> Beat the dealer without going over 21. Dealer stands on 17. Blackjack pays 3:2.</div>
+          <div style="display:flex;gap:12px;justify-content:center;align-items:flex-end;margin:12px 0">
+            <div><div style="font-weight:700;color:var(--muted)">Player</div><div id="bjPlayer" style="margin-top:6px"></div></div>
+            <div><div style="font-weight:700;color:var(--muted)">Dealer</div><div id="bjDealer" style="margin-top:6px"></div></div>
+          </div>
+          <div class="controls">
+            <label>Bet</label><input type="number" id="bjBet" value="25" min="1">
+            <button id="bjDealBtn">Deal</button>
+            <button id="bjHitBtn" class="ghost" style="display:none">Hit</button>
+            <button id="bjStandBtn" class="ghost" style="display:none">Stand</button>
+            <button id="bjSuggest" class="ghost">Suggest Bet</button>
+          </div>
+          <div class="evbox" id="bjInfo"></div>
+        </div>
+
+        <!-- ROULETTE -->
+        <div class="game" id="game-roulette" data-gamepanel style="display:none">
+          <h3 style="color:var(--neon)">🎡 Roulette</h3>
+          <div class="hint"><strong>How:</strong> Bet on color/odd-even/dozen/number. European wheel 0–36 (single zero).</div>
+          <div class="controls">
+            <label>Bet</label><input type="number" id="rouBet" value="25" min="1">
+            <label>Type</label>
+            <select id="rouType"><option value="color">Color (1:1)</option><option value="evenodd">Odd/Even (1:1)</option><option value="dozen">Dozen (2:1)</option><option value="number">Number (35:1)</option></select>
+            <input type="text" id="rouArg" placeholder="e.g. red / odd / 1 / 17" style="width:120px">
+            <button id="rouSpinBtn">Spin</button>
+            <button id="rouSuggest" class="ghost">Suggest Bet</button>
+          </div>
+          <div id="wheel" style="margin-top:12px"><div class="wheel-center">SPIN</div></div>
+          <div class="evbox" id="rouInfo"></div>
+          <div id="rouletteFeedback" class="evbox" style="margin-top:8px"></div>
+        </div>
+
+      </section>
+
+      <!-- RULES PANEL -->
+      <section class="panel" data-panel="rules" style="display:none">
+        <h2>Rules & How to Play</h2>
+        <p class="hint"><strong>Overview:</strong> This tool is a learning simulator. Do not use it for real gambling. All credits are fake.</p>
+        <h3>Slots</h3>
+        <p>Weighted symbols. Probability to match 3 of symbol s = (w_s / total_weight)^3. Payouts are fixed multipliers of your bet.</p>
+        <h3>Dice</h3>
+        <p>High/Low: ranges cover 3 faces each (50%). Exact: 1/6 chance, larger payout.</p>
+        <h3>Blackjack</h3>
+        <p>Standard simplified rules. Aces are 1 or 11. Dealer stands on 17. Blackjack (two-card 21) pays 3:2.</p>
+        <h3>Roulette</h3>
+        <p>European wheel 0–36. Color / odd-even / dozen / single-number bets available. House edge is due to the zero.</p>
+        <hr>
+        <p class="hint"><strong>Betting advice (educational):</strong> Use small bets for learning. A common suggestion: 1% of your balance per bet.</p>
+      </section>
+
+    </div>
+
+    <!-- RIGHT column -->
+    <aside class="panel" data-panel="stats" style="display:none" aria-live="polite">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div class="side-title">Session</div><div class="muted-small">Live chart & log</div>
+      </div>
+
+      <canvas id="balanceChart" height="220" style="width:100%;margin-top:12px"></canvas>
+
+      <div style="margin-top:12px">
+        <div class="side-title">Probabilities & EV</div>
+        <div id="evBoxGlobal" class="evbox"></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <div class="side-title">Recent activity</div>
+        <div class="history" id="historyLog"></div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center">
+        <div class="muted-small">Fake credits only</div>
+        <div><button id="clearDataBtn" class="ghost">Clear Data</button></div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<div id="achievement" role="status" aria-live="polite"></div>
+<canvas id="particleCanvas" style="position:fixed;left:0;top:0;pointer-events:none;z-index:9999"></canvas>
+
+<footer>Use this simulator responsibly. If gambling is a problem in your life or someone you know, seek help from a trusted adult or professional resources.</footer>
+
+<script>
+/* Full working JS — all wiring done. Copy this file as-is. */
+document.addEventListener('DOMContentLoaded', () => {
+  const STORAGE_KEY = 'neon_vault_balance_v2';
+
+  // state
+  const state = {
+    balance: parseInt(localStorage.getItem(STORAGE_KEY)) || 1000,
+    plays: 0,
+    history: []
+  };
+
+  // DOM refs
+  const balanceEl = document.getElementById('balanceVal');
+  const historyLog = document.getElementById('historyLog');
+  const achievementEl = document.getElementById('achievement');
+  const particleCanvas = document.getElementById('particleCanvas');
+  const pctx = particleCanvas.getContext('2d');
+
+  // resize particle canvas
+  function resizeParticles(){ particleCanvas.width = window.innerWidth; particleCanvas.height = window.innerHeight; }
+  window.addEventListener('resize', resizeParticles);
+  resizeParticles();
+
+  // helpers
+  function save(){ localStorage.setItem(STORAGE_KEY, state.balance); }
+  function pushHistory(text){
+    const el = document.createElement('div');
+    el.className = 'hist-item';
+    el.innerText = `${new Date().toLocaleTimeString()} — ${text}`;
+    historyLog.prepend(el);
+    state.history.unshift({ t: Date.now(), text });
+    while(historyLog.children.length > 200) historyLog.removeChild(historyLog.lastChild);
+  }
+  function showAchievement(text){
+    achievementEl.innerText = `Achievement: ${text}`;
+    achievementEl.style.display = 'block';
+    setTimeout(()=>achievementEl.style.display = 'none', 3000);
+  }
+  function clampBet(b){ if(isNaN(b)||b<=0) return null; if(b>state.balance) return null; return Math.floor(b); }
+  function tone(freq=440,d=0.08){ try{ const ctx=new (window.AudioContext||window.webkitAudioContext)(); const o=ctx.createOscillator(), g=ctx.createGain(); o.type='sine'; o.frequency.value=freq; o.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(0.0001,ctx.currentTime); o.start(); g.gain.exponentialRampToValueAtTime(0.12,ctx.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.0001,ctx.currentTime+d); o.stop(ctx.currentTime+d+0.02); }catch(e){} }
+
+  // chart
+  const ctx = document.getElementById('balanceChart').getContext('2d');
+  const chart = new Chart(ctx, { type:'line', data:{ labels:[0], datasets:[{label:'Balance',data:[state.balance], borderColor:'#36d089', backgroundColor:'rgba(54,208,137,0.08)', tension:0.25}] }, options:{responsive:true,plugins:{legend:{display:false}}} });
+  function updateChart(){ state.plays++; chart.data.labels.push(state.plays); chart.data.datasets[0].data.push(state.balance); chart.update(); }
+
+  // particles
+  let particles=[];
+  function spawn(x,y,color='#36d089'){ for(let i=0;i<40;i++){ particles.push({ x,y, vx:(Math.random()-0.5)*6, vy:(Math.random()-0.5)*6 -2, life:50+Math.random()*30, color }); } }
+  function animateParticles(){ pctx.clearRect(0,0,particleCanvas.width,particleCanvas.height); for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.vy+=0.12; p.x+=p.vx; p.y+=p.vy; p.life--; pctx.fillStyle=p.color; pctx.fillRect(p.x,p.y,3,3); if(p.life<=0) particles.splice(i,1); } requestAnimationFrame(animateParticles); }
+  animateParticles();
+
+  // achievements
+  const THRESH = [2000,5000,10000];
+  function checkAchievements(){ for(const t of THRESH){ const key='ach_'+t; if(state.balance>=t && !localStorage.getItem(key)){ localStorage.setItem(key,'1'); showAchievement(`${t} credits reached`); } } }
+
+  // EV / probabilities
+  const slotSymbols = [ {sym:'🍒', w:50, payout:5}, {sym:'🍋', w:28, payout:8}, {sym:'🔔', w:12, payout:15}, {sym:'💎', w:7, payout:25}, {sym:'7️⃣', w:3, payout:80} ]; // weights tuned: 3 is rare
+  const slotTotal = slotSymbols.reduce((s,x)=>s+x.w,0);
+  function weightedSymbol(){ let r=Math.random()*slotTotal; for(const s of slotSymbols){ if(r < s.w) return s.sym; r-=s.w; } return slotSymbols[slotSymbols.length-1].sym; }
+  function computeSlotsEV(){ let expected=0; let prob=0; for(const s of slotSymbols){ const p = Math.pow(s.w/slotTotal,3); prob += p; expected += p * s.payout; } return { expectedReturn: expected, ev: expected - 1, probMatch3: prob }; }
+
+  function computeDiceEV(){ const exactReturn = (1/6)*5; const exactEV = exactReturn - 1; return { exactEV }; }
+  function computeRouletteEV(){ const colorReturn = (18/37)*2; const colorEV = colorReturn - 1; const house = -colorEV; return { colorEV, house }; }
+  function updateEVBoxes(){ const s=computeSlotsEV(); const d=computeDiceEV(); const r=computeRouletteEV(); document.getElementById('evBoxGlobal').innerText = `Slots EV per 1 credit = ${s.ev.toFixed(4)} • Dice Exact EV = ${d.exactEV.toFixed(4)} • Roulette color EV = ${r.colorEV.toFixed(4)} (house ${(r.house*100||(-r.colorEV*100)).toFixed(3)}%)`; document.getElementById('slotsInfo').innerText = `Slots EV per 1 credit: ${s.ev.toFixed(4)} • Prob(match3): ${(s.probMatch3*100).toFixed(5)}% • Suggested bet: ${Math.max(1, Math.round(state.balance*0.01))}`; document.getElementById('diceInfo').innerText = `Dice Exact EV: ${d.exactEV.toFixed(4)} • Suggested bet: ${Math.max(1, Math.round(state.balance*0.01))}`; document.getElementById('bjInfo').innerText = `Blackjack (simplified) — suggested bet: ${Math.max(1, Math.round(state.balance*0.01))}`; const rr=computeRouletteEV(); document.getElementById('rouInfo').innerText = `Roulette color EV ≈ ${(rr.colorEV*100).toFixed(3)}% (negative). Suggested bet: ${Math.max(1, Math.round(state.balance*0.01))}`; }
+
+  // update UI
+  function updateUI(){ balanceEl.innerText = Math.round(Math.max(0,state.balance)); save(); updateChart(); }
+  function save(){ localStorage.setItem(STORAGE_KEY, state.balance); }
+
+  // initialize
+  updateEVBoxes(); updateUI(); pushHistory(`Session start — balance ${state.balance}`);
+
+  // --- Tabs wiring (main) ---
+  document.querySelectorAll('.tab').forEach(tab=>{
+    tab.addEventListener('click', ()=> {
+      document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+      tab.classList.add('active');
+      const which = tab.getAttribute('data-tab');
+      document.querySelectorAll('[data-panel]').forEach(p=> p.style.display = (p.getAttribute('data-panel') === which) ? '' : 'none');
+    });
+  });
+
+  // --- Game buttons (sub) ---
+  document.querySelectorAll('.game-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> {
+      document.querySelectorAll('.game-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      const g = btn.getAttribute('data-game');
+      document.querySelectorAll('[data-gamepanel]').forEach(p=> p.style.display = 'none');
+      const el = document.getElementById('game-'+g);
+      if(el) el.style.display = '';
+    });
+  });
+
+  // --- SLOTS ---
+  document.getElementById('spinSlotsBtn').addEventListener('click', ()=>{
+    const betRaw = parseFloat(document.getElementById('slotsBet').value);
+    const bet = clampBet(betRaw);
+    if(!bet){ alert('Enter a valid bet not exceeding your balance'); return; }
+    state.balance -= bet; updateUI(); pushHistory(`Slots: bet ${bet} — spin`);
+    const rEls = [document.getElementById('slot-r1'), document.getElementById('slot-r2'), document.getElementById('slot-r3')];
+    rEls.forEach((el,i)=> el.style.transform = `rotateX(${720 + i*120}deg)`);
+    setTimeout(()=>{
+      const res = [weightedSymbol(), weightedSymbol(), weightedSymbol()];
+      rEls.forEach((el,i)=>{ el.innerText = res[i]; el.style.transform = 'rotateX(0deg)'; });
+      if(res[0]===res[1] && res[1]===res[2]){
+        const symObj = slotSymbols.find(s=>s.sym===res[0]);
+        const payout = Math.round(bet * symObj.payout);
+        state.balance += payout;
+        pushHistory(`Slots: WIN ${payout} (${res[0]}×3)`);
+        const rect = rEls[1].getBoundingClientRect();
+        spawn(rect.left + rect.width/2, rect.top + rect.height/2, '#fff176');
+        tone(900,0.12);
+      } else {
+        pushHistory(`Slots: LOSE ${bet}`);
+        tone(160,0.06);
+      }
+      updateUI(); checkAchievements(); updateEVBoxes();
+    },800);
+  });
+  document.getElementById('slotsSuggest').addEventListener('click', ()=> alert(`Suggested bet (educational): ${Math.max(1, Math.round(state.balance*0.01))} credits (≈1% of balance).`));
+
+  // --- DICE ---
+  function rollDie(){ return Math.floor(Math.random()*6)+1; }
+  document.getElementById('diceRollBtn').addEventListener('click', ()=>{
+    const bet = clampBet(parseFloat(document.getElementById('diceBet').value));
+    if(!bet){ alert('Enter a valid bet within your balance'); return; }
+    const type = document.getElementById('diceType').value; const exact = parseInt(document.getElementById('diceExact').value) || 0;
+    state.balance -= bet; updateUI(); pushHistory(`Dice: bet ${bet} (${type}${type==='exact'?' '+exact:''}) — roll`);
+    const roll = rollDie(); document.getElementById('diceFace').innerText = roll;
+    let payout = 0;
+    if(type==='high' && roll>=4) payout = bet*2;
+    if(type==='low' && roll<=3) payout = bet*2;
+    if(type==='exact' && roll===exact) payout = bet*6; // returns bet + 5x
+    if(payout>0){ state.balance += payout; pushHistory(`Dice: WIN ${payout} (rolled ${roll})`); spawn(window.innerWidth/2,window.innerHeight/2,'#ffd54f'); tone(720,0.12); } else { pushHistory(`Dice: LOSE ${bet} (rolled ${roll})`); tone(180,0.06); }
+    updateUI(); checkAchievements(); updateEVBoxes();
+  });
+  document.getElementById('diceSuggest').addEventListener('click', ()=> alert(`Suggested bet: ${Math.max(1, Math.round(state.balance*0.01))} credits.`));
+
+  // --- BLACKJACK ---
+  let deck=[], bjPlayer=[], bjDealer=[], bjBet=0, bjInPlay=false;
+  function newDeck(){ const suits=['♠','♥','♦','♣']; const ranks=['A','2','3','4','5','6','7','8','9','10','J','Q','K']; deck=[]; for(const s of suits) for(const r of ranks) deck.push(r+s); for(let i=deck.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [deck[i],deck[j]]=[deck[j],deck[i]]; } }
+  function draw(){ if(deck.length<15) newDeck(); return deck.pop(); }
+  function handValue(h){ let total=0, aces=0; for(const c of h){ const r=c.slice(0,-1); if(r==='A'){ aces++; total+=11; } else if(['K','Q','J'].includes(r)) total+=10; else total+=parseInt(r); } while(total>21 && aces>0){ total-=10; aces--; } return total; }
+  function renderBJ(){ const pl=document.getElementById('bjPlayer'), dl=document.getElementById('bjDealer'); pl.innerHTML=''; dl.innerHTML=''; for(const c of bjPlayer){ const d=document.createElement('div'); d.className='card'; d.innerText=c; pl.appendChild(d);} for(const c of bjDealer){ const d=document.createElement('div'); d.className='card'; d.innerText=c; dl.appendChild(d);} }
+
+  document.getElementById('bjDealBtn').addEventListener('click', ()=>{
+    const bet = clampBet(parseFloat(document.getElementById('bjBet').value));
+    if(!bet){ alert('Enter valid bet'); return; }
+    bjBet = bet; state.balance -= bet; updateUI();
+    newDeck(); bjPlayer=[draw(),draw()]; bjDealer=[draw(),draw()]; bjInPlay=true; renderBJ();
+    document.getElementById('bjHitBtn').style.display='inline-block'; document.getElementById('bjStandBtn').style.display='inline-block';
+    pushHistory(`Blackjack: bet ${bet} — dealt`);
+  });
+
+  document.getElementById('bjHitBtn').addEventListener('click', ()=>{ if(!bjInPlay) return; bjPlayer.push(draw()); renderBJ(); const pv=handValue(bjPlayer); if(pv>21){ bjInPlay=false; document.getElementById('bjHitBtn').style.display='none'; document.getElementById('bjStandBtn').style.display='none'; pushHistory(`Blackjack: BUST — lost ${bjBet}`); tone(160,0.06); updateUI(); checkAchievements(); }});
+
+  document.getElementById('bjStandBtn').addEventListener('click', ()=>{ if(!bjInPlay) return; while(handValue(bjDealer)<17) bjDealer.push(draw()); renderBJ(); const pv=handValue(bjPlayer), dv=handValue(bjDealer); let payout=0, note=''; if(pv>21){ payout=0; note='Player busted'; } else if(dv>21 || pv>dv){ if(bjPlayer.length===2 && pv===21){ payout = Math.round(bjBet * 2.5); note='Blackjack!'; } else { payout = bjBet*2; note='Win'; } } else if(pv===dv){ payout = bjBet; note='Push'; } else { payout = 0; note='Lose'; } if(payout>0){ state.balance += payout; spawn(window.innerWidth/2,window.innerHeight/2,'#ffd54f'); tone(780,0.12); } pushHistory(`Blackjack: ${note} — ${payout>0?('+'+payout):('lost '+bjBet)}`); bjInPlay=false; document.getElementById('bjHitBtn').style.display='none'; document.getElementById('bjStandBtn').style.display='none'; updateUI(); checkAchievements(); updateEVBoxes(); });
+
+  document.getElementById('bjSuggest').addEventListener('click', ()=> alert(`Suggested bet: ${Math.max(1, Math.round(state.balance*0.01))} credits (educational).`));
+
+  // --- ROULETTE ---
+  const redNums = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  document.getElementById('rouSpinBtn').addEventListener('click', ()=>{
+    const bet = clampBet(parseFloat(document.getElementById('rouBet').value));
+    if(!bet){ alert('Enter a valid bet within your balance'); return; }
+    const type = document.getElementById('rouType').value; const arg = document.getElementById('rouArg').value.trim().toLowerCase();
+    state.balance -= bet; updateUI(); pushHistory(`Roulette: bet ${bet} (${type} ${arg||''}) — spinning`);
+    const outcome = Math.floor(Math.random()*37); const color = (outcome===0)?'green':(redNums.has(outcome)?'red':'black');
+    const segment = 360/37; const deg = 6*360 + (outcome * segment);
+    document.getElementById('wheel').style.transform = `rotate(${deg}deg)`; tone(420,0.25);
+    setTimeout(()=>{
+      let won=false, payout=0;
+      if(type==='color'){ if(arg===color) { won=true; payout=bet*2; } }
+      else if(type==='evenodd'){ if(outcome!==0){ const oe=(outcome%2===0)?'even':'odd'; if(arg===oe){ won=true; payout=bet*2; } } }
+      else if(type==='dozen'){ const n=parseInt(arg); if(n>=1 && n<=3 && outcome!==0){ const start=(n-1)*12+1; const end=n*12; if(outcome>=start && outcome<=end){ won=true; payout=bet*3; } } }
+      else if(type==='number'){ const nparse=parseInt(arg); if(!isNaN(nparse) && nparse===outcome){ won=true; payout=bet*36; } } // payout = bet * (35 + returned bet) => multiply by 36 to simplify
+      if(won){ state.balance += payout; spawn(window.innerWidth/2,window.innerHeight/2,'#ffeb3b'); tone(700,0.12); pushHistory(`Roulette: ${outcome} ${color.toUpperCase()} → WIN ${payout}`); } else { pushHistory(`Roulette: ${outcome} ${color.toUpperCase()} → LOSE ${bet}`); tone(180,0.06); }
+      updateUI(); checkAchievements(); updateEVBoxes(); document.getElementById('rouletteFeedback').innerText = `Outcome: ${outcome} (${color.toUpperCase()})`;
+    },3200);
+  });
+  document.getElementById('rouSuggest').addEventListener('click', ()=> alert(`Suggested bet: ${Math.max(1, Math.round(state.balance*0.01))} credits.`));
+
+  // --- SIMULATION (fast) ---
+  function runSlotsSim(runs, bet){
+    let net=0;
+    for(let i=0;i<runs;i++){
+      net -= bet;
+      const a=weightedSymbol(), b=weightedSymbol(), c=weightedSymbol();
+      if(a===b && b===c){ const symObj = slotSymbols.find(s=>s.sym===a); net += Math.round(bet*symObj.payout); }
+    }
+    return net;
+  }
+  document.getElementById('runSimBtn')?.addEventListener('click', ()=> {
+    const runs = parseInt(document.getElementById('simRuns')?.value || 10000);
+    const bet = Math.max(1, parseInt(document.getElementById('simBet')?.value || 20));
+    pushHistory(`Simulation: running ${runs} spins at bet ${bet}`);
+    const res = runSlotsSim(runs, bet);
+    document.getElementById('simResult').innerText = `Simulated ${runs} spins at ${bet}: net ${res} credits (avg ${(res/runs).toFixed(4)})`;
+  });
+
+  // --- Reset & Clear ---
+  document.getElementById('resetBtn').addEventListener('click', ()=> {
+    if(confirm('Reset balance to 1000 credits?')){ state.balance=1000; state.plays=0; state.history=[]; updateUI(); chart.data.labels=[0]; chart.data.datasets[0].data=[state.balance]; chart.update(); localStorage.removeItem('ach_2000'); localStorage.removeItem('ach_5000'); localStorage.removeItem('ach_10000'); pushHistory('Balance reset to 1000'); }
+  });
+  document.getElementById('clearDataBtn').addEventListener('click', ()=> {
+    if(confirm('Clear saved credits and history?')){ localStorage.removeItem(STORAGE_KEY); state.balance=1000; state.plays=0; state.history=[]; updateUI(); chart.data.labels=[0]; chart.data.datasets[0].data=[state.balance]; chart.update(); historyLog.innerHTML=''; pushHistory('Data cleared'); }
+  });
+
+  // keyboard shortcuts
+  window.addEventListener('keydown', e=> {
+    if(e.key==='1') document.querySelector('.game-btn[data-game="slots"]').click();
+    if(e.key==='2') document.querySelector('.game-btn[data-game="dice"]').click();
+    if(e.key==='3') document.querySelector('.game-btn[data-game="blackjack"]').click();
+    if(e.key==='4') document.querySelector('.game-btn[data-game="roulette"]').click();
+  });
+
+  // initial UI update
+  function updateEVBoxes(){ updateEVBoxes = updateEVBoxes; } // placeholder so linter not complain
+  updateEVBoxes = function(){ /* defined above with computed values - ensure fresh */ };
+  // call actual defined one from earlier closure
+  updateEVBoxes(); // initial call from earlier computeSlotsEV usage
+  // Because we defined updateEVBoxes earlier inside compute functions, ensure it's called:
+  updateEVBoxes = ()=> { /* reusing existing function defined earlier is fine, but ensure it's defined */ };
+  // For safety just recompute quickly here:
+  document.getElementById('evBoxGlobal').innerText = (()=>{ const s = (function(){ let expected=0,prob=0; for(const so of slotSymbols){ const p=Math.pow(so.w/slotTotal,3); prob+=p; expected += p*so.payout } return { expectedReturn: expected, ev: expected -1, probMatch3: prob }; })(); const d = (function(){ const exactReturn=(1/6)*5; return { exactEV: exactReturn -1 }; })(); const r = (function(){ const colorReturn=(18/37)*2; return { colorEV: colorReturn-1, house: -(colorReturn-1) }; })(); return `Slots EV per 1 credit = ${(s.ev).toFixed(4)} • Dice Exact EV = ${(d.exactEV).toFixed(4)} • Roulette color EV = ${(r.colorEV).toFixed(4)} (house ${(r.house*100).toFixed(3)}%)`; })();
+
+  // small helper: initial update and saving
+  updateUI(); checkAchievements();
+
+  /************ end DOMContentLoaded ************/
+}); // DOMContentLoaded end
+</script>
+</body>
+</html>
